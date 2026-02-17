@@ -3,12 +3,13 @@
  *
  * Handles spawning, managing, and parsing output from Claude CLI subprocesses.
  * Uses spawn() instead of exec() to prevent shell injection vulnerabilities.
+ *
+ * Emits standardized events (ContentDeltaEvent, ResultEvent) for uniform
+ * handling across all CLI backends.
  */
 
 import { spawn, ChildProcess } from "child_process";
 import { EventEmitter } from "events";
-import fs from "fs/promises";
-import path from "path";
 import type {
   ClaudeCliMessage,
   ClaudeCliAssistant,
@@ -16,23 +17,9 @@ import type {
   ClaudeCliStreamEvent,
 } from "../types/claude-cli.js";
 import { isAssistantMessage, isResultMessage, isContentDelta } from "../types/claude-cli.js";
-import type { ClaudeModel } from "../adapter/openai-to-cli.js";
+import type { ContentDeltaEvent, ResultEvent, SubprocessStartOptions } from "../types/common.js";
 
-export interface SubprocessOptions {
-  model: ClaudeModel;
-  sessionId?: string;
-  cwd?: string;
-  timeout?: number;
-}
-
-export interface SubprocessEvents {
-  message: (msg: ClaudeCliMessage) => void;
-  assistant: (msg: ClaudeCliAssistant) => void;
-  result: (result: ClaudeCliResult) => void;
-  error: (error: Error) => void;
-  close: (code: number | null) => void;
-  raw: (line: string) => void;
-}
+export type ClaudeModel = "opus" | "sonnet" | "haiku";
 
 const DEFAULT_TIMEOUT = 300000; // 5 minutes
 
@@ -45,7 +32,7 @@ export class ClaudeSubprocess extends EventEmitter {
   /**
    * Start the Claude CLI subprocess with the given prompt
    */
-  async start(prompt: string, options: SubprocessOptions): Promise<void> {
+  async start(prompt: string, options: SubprocessStartOptions): Promise<void> {
     const args = this.buildArgs(prompt, options);
     const timeout = options.timeout || DEFAULT_TIMEOUT;
 
@@ -84,12 +71,12 @@ export class ClaudeSubprocess extends EventEmitter {
         // Close stdin since we pass prompt as argument
         this.process.stdin?.end();
 
-        console.error(`[Subprocess] Process spawned with PID: ${this.process.pid}`);
+        console.error(`[ClaudeSubprocess] Process spawned with PID: ${this.process.pid}`);
 
         // Parse JSON stream from stdout
         this.process.stdout?.on("data", (chunk: Buffer) => {
           const data = chunk.toString();
-          console.error(`[Subprocess] Received ${data.length} bytes of stdout`);
+          console.error(`[ClaudeSubprocess] Received ${data.length} bytes of stdout`);
           this.buffer += data;
           this.processBuffer();
         });
@@ -100,13 +87,13 @@ export class ClaudeSubprocess extends EventEmitter {
           if (errorText) {
             // Don't emit as error unless it's actually an error
             // Claude CLI may write debug info to stderr
-            console.error("[Subprocess stderr]:", errorText.slice(0, 200));
+            console.error("[ClaudeSubprocess stderr]:", errorText.slice(0, 200));
           }
         });
 
         // Handle process close
         this.process.on("close", (code) => {
-          console.error(`[Subprocess] Process closed with code: ${code}`);
+          console.error(`[ClaudeSubprocess] Process closed with code: ${code}`);
           this.clearTimeout();
           // Process any remaining buffer
           if (this.buffer.trim()) {
@@ -127,7 +114,7 @@ export class ClaudeSubprocess extends EventEmitter {
   /**
    * Build CLI arguments array
    */
-  private buildArgs(prompt: string, options: SubprocessOptions): string[] {
+  private buildArgs(prompt: string, options: SubprocessStartOptions): string[] {
     const args = [
       "--print", // Non-interactive mode
       "--output-format",
@@ -135,8 +122,7 @@ export class ClaudeSubprocess extends EventEmitter {
       "--verbose", // Required for stream-json
       "--include-partial-messages", // Enable streaming chunks
       "--model",
-      options.model, // Model alias (opus/sonnet/haiku)
-      "--no-session-persistence", // Don't save sessions
+      options.model || "sonnet", // Model alias (opus/sonnet/haiku)
       prompt, // Pass prompt as argument (more reliable than stdin)
     ];
 
@@ -147,8 +133,11 @@ export class ClaudeSubprocess extends EventEmitter {
     return args;
   }
 
+  private lastModel: string = "claude-sonnet-4";
+
   /**
-   * Process the buffer and emit parsed messages
+   * Process the buffer and emit parsed messages.
+   * Emits standardized ContentDeltaEvent and ResultEvent.
    */
   private processBuffer(): void {
     const lines = this.buffer.split("\n");
@@ -160,15 +149,33 @@ export class ClaudeSubprocess extends EventEmitter {
 
       try {
         const message: ClaudeCliMessage = JSON.parse(trimmed);
-        this.emit("message", message);
 
         if (isContentDelta(message)) {
-          // Emit content delta for streaming
-          this.emit("content_delta", message as ClaudeCliStreamEvent);
+          // Emit standardized content delta
+          const event = message as ClaudeCliStreamEvent;
+          const text = event.event.delta?.text || "";
+          if (text) {
+            const delta: ContentDeltaEvent = { text };
+            this.emit("content_delta", delta);
+          }
         } else if (isAssistantMessage(message)) {
-          this.emit("assistant", message);
+          const assistant = message as ClaudeCliAssistant;
+          this.lastModel = assistant.message.model || this.lastModel;
         } else if (isResultMessage(message)) {
-          this.emit("result", message);
+          const cliResult = message as ClaudeCliResult;
+          const modelName = cliResult.modelUsage
+            ? Object.keys(cliResult.modelUsage)[0]
+            : this.lastModel;
+
+          const result: ResultEvent = {
+            text: cliResult.result,
+            model: modelName,
+            usage: cliResult.usage ? {
+              input_tokens: cliResult.usage.input_tokens || 0,
+              output_tokens: cliResult.usage.output_tokens || 0,
+            } : undefined,
+          };
+          this.emit("result", result);
         }
       } catch {
         // Non-JSON output, emit as raw

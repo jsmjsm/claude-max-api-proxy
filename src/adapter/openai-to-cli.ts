@@ -1,55 +1,16 @@
 /**
- * Converts OpenAI chat request format to Claude CLI input
+ * Converts OpenAI chat request messages to a single prompt string
+ * suitable for any CLI backend (Claude, Cursor, Gemini).
+ *
+ * All three CLIs accept a single prompt string in their non-interactive modes.
  */
 
 import type { OpenAIChatRequest } from "../types/openai.js";
 
-export type ClaudeModel = "opus" | "sonnet" | "haiku";
-
-export interface CliInput {
-  prompt: string;
-  model: ClaudeModel;
-  sessionId?: string;
-}
-
-const MODEL_MAP: Record<string, ClaudeModel> = {
-  // Direct model names
-  "claude-opus-4": "opus",
-  "claude-sonnet-4": "sonnet",
-  "claude-haiku-4": "haiku",
-  // With provider prefix
-  "claude-code-cli/claude-opus-4": "opus",
-  "claude-code-cli/claude-sonnet-4": "sonnet",
-  "claude-code-cli/claude-haiku-4": "haiku",
-  // Aliases
-  "opus": "opus",
-  "sonnet": "sonnet",
-  "haiku": "haiku",
-};
-
 /**
- * Extract Claude model alias from request model string
- */
-export function extractModel(model: string): ClaudeModel {
-  // Try direct lookup
-  if (MODEL_MAP[model]) {
-    return MODEL_MAP[model];
-  }
-
-  // Try stripping provider prefix
-  const stripped = model.replace(/^claude-code-cli\//, "");
-  if (MODEL_MAP[stripped]) {
-    return MODEL_MAP[stripped];
-  }
-
-  // Default to opus (Claude Max subscription)
-  return "opus";
-}
-
-/**
- * Convert OpenAI messages array to a single prompt string for Claude CLI
+ * Convert OpenAI messages array to a single prompt string for CLI backends.
  *
- * Claude Code CLI in --print mode expects a single prompt, not a conversation.
+ * CLI tools in --print mode expect a single prompt, not a conversation.
  * We format the messages into a readable format that preserves context.
  */
 export function messagesToPrompt(messages: OpenAIChatRequest["messages"]): string {
@@ -75,15 +36,4 @@ export function messagesToPrompt(messages: OpenAIChatRequest["messages"]): strin
   }
 
   return parts.join("\n").trim();
-}
-
-/**
- * Convert OpenAI chat request to CLI input format
- */
-export function openaiToCli(request: OpenAIChatRequest): CliInput {
-  return {
-    prompt: messagesToPrompt(request.messages),
-    model: extractModel(request.model),
-    sessionId: request.user, // Use OpenAI's user field for session mapping
-  };
 }

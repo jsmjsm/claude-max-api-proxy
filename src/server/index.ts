@@ -101,7 +101,7 @@ export async function startServer(config: ServerConfig): Promise<Server> {
     });
 
     serverInstance.listen(port, host, () => {
-      console.log(`[Server] Claude Code CLI provider running at http://${host}:${port}`);
+      console.log(`[Server] Multi-CLI API Proxy running at http://${host}:${port}`);
       console.log(`[Server] OpenAI-compatible endpoint: http://${host}:${port}/v1/chat/completions`);
       resolve(serverInstance!);
     });
