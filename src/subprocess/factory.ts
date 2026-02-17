@@ -100,6 +100,11 @@ export function resolveBackend(model: string): ResolvedBackend {
     return { backend: "gemini", cliModel: cliModel || "" };
   }
 
+  if (model.startsWith("gemini/")) {
+    const cliModel = model.slice("gemini/".length);
+    return { backend: "gemini", cliModel: cliModel || "" };
+  }
+
   if (model.startsWith("claude/") || model.startsWith("claude-code-cli/")) {
     const prefix = model.startsWith("claude/") ? "claude/" : "claude-code-cli/";
     const remainder = model.slice(prefix.length);

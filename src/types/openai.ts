@@ -3,9 +3,17 @@
  * Used for Clawdbot integration
  */
 
+/**
+ * Content can be a plain string or an array of content parts (multimodal).
+ * OpenClaw and other clients may send either format.
+ */
+export type OpenAIChatContent =
+  | string
+  | Array<{ type: string; text?: string; image_url?: { url: string } }>;
+
 export interface OpenAIChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: OpenAIChatContent;
 }
 
 export interface OpenAIChatRequest {
