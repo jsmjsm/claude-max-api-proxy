@@ -106,6 +106,7 @@ export class CursorSubprocess extends EventEmitter {
       "-p",                        // Print mode (non-interactive, reads from stdin)
       "--output-format", "stream-json",
       "--stream-partial-output",   // Enable streaming deltas
+      "--yolo",                    // Auto-approve all tool executions (shell, write, etc.)
     ];
 
     if (options.model) {
