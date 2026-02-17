@@ -282,7 +282,9 @@ async function handleNonStreamingResponse(
 /**
  * Handle GET /v1/models
  *
- * Returns available models from all backends
+ * Returns available models from all backends.
+ * Lists both slash-format (for direct API callers) and dash-format
+ * (for OpenClaw custom provider integration) model IDs.
  */
 export function handleModels(_req: Request, res: Response): void {
   const now = Math.floor(Date.now() / 1000);
@@ -291,86 +293,38 @@ export function handleModels(_req: Request, res: Response): void {
     object: "list",
     data: [
       // ─── Claude CLI models ─────────────────────────────────────────
-      {
-        id: "claude-opus-4",
-        object: "model",
-        owned_by: "anthropic",
-        created: now,
-      },
-      {
-        id: "claude-sonnet-4",
-        object: "model",
-        owned_by: "anthropic",
-        created: now,
-      },
-      {
-        id: "claude-haiku-4",
-        object: "model",
-        owned_by: "anthropic",
-        created: now,
-      },
+      // Slash format (direct API usage)
+      { id: "claude-opus-4", object: "model", owned_by: "anthropic", created: now },
+      { id: "claude-sonnet-4", object: "model", owned_by: "anthropic", created: now },
+      { id: "claude-haiku-4", object: "model", owned_by: "anthropic", created: now },
+
       // ─── Cursor CLI models (popular subset) ────────────────────────
-      {
-        id: "cursor/opus-4.6-thinking",
-        object: "model",
-        owned_by: "cursor",
-        created: now,
-      },
-      {
-        id: "cursor/opus-4.6",
-        object: "model",
-        owned_by: "cursor",
-        created: now,
-      },
-      {
-        id: "cursor/sonnet-4.5-thinking",
-        object: "model",
-        owned_by: "cursor",
-        created: now,
-      },
-      {
-        id: "cursor/sonnet-4.5",
-        object: "model",
-        owned_by: "cursor",
-        created: now,
-      },
-      {
-        id: "cursor/gpt-5.3-codex",
-        object: "model",
-        owned_by: "cursor",
-        created: now,
-      },
-      {
-        id: "cursor/gpt-5.2",
-        object: "model",
-        owned_by: "cursor",
-        created: now,
-      },
-      {
-        id: "cursor/gemini-3-pro",
-        object: "model",
-        owned_by: "cursor",
-        created: now,
-      },
-      {
-        id: "cursor/auto",
-        object: "model",
-        owned_by: "cursor",
-        created: now,
-      },
+      // Slash format (direct API usage)
+      { id: "cursor/auto", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor/opus-4.6-thinking", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor/opus-4.6", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor/sonnet-4.5-thinking", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor/sonnet-4.5", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor/gpt-5.3-codex", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor/gpt-5.2", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor/gemini-3-pro", object: "model", owned_by: "cursor", created: now },
+      // Dash format (OpenClaw custom provider: model IDs can't contain "/")
+      { id: "cursor-auto", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor-opus-4.6-thinking", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor-opus-4.6", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor-sonnet-4.5-thinking", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor-sonnet-4.5", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor-gpt-5.3-codex", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor-gpt-5.2", object: "model", owned_by: "cursor", created: now },
+      { id: "cursor-gemini-3-pro", object: "model", owned_by: "cursor", created: now },
+
       // ─── Gemini CLI models ─────────────────────────────────────────
-      {
-        id: "gemini-cli/gemini-2.5-pro",
-        object: "model",
-        owned_by: "google",
-        created: now,
-      },
-      {
-        id: "gemini-cli/gemini-2.5-flash",
-        object: "model",
-        owned_by: "google",
-        created: now,
-      },
+      // Slash format
+      { id: "gemini-cli/gemini-2.5-pro", object: "model", owned_by: "google", created: now },
+      { id: "gemini-cli/gemini-2.5-flash", object: "model", owned_by: "google", created: now },
+      // Dash format (OpenClaw custom provider)
+      { id: "gemini-cli-gemini-2.5-pro", object: "model", owned_by: "google", created: now },
+      { id: "gemini-cli-gemini-2.5-flash", object: "model", owned_by: "google", created: now },
     ],
   });
 }
